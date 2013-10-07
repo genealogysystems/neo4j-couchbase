@@ -109,6 +109,8 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
             node.put("couchApiBase", String.format("http://%s/", hostPort));
             node.put("hostname", hostPort);
             node.put("ports", nodePorts);
+            nodes.add(node);
+            return nodes;
         }
         return null;
     }

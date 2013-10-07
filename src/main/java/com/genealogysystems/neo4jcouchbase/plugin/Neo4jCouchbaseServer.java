@@ -9,6 +9,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.BasicConfigurator;
 
+
 /**
  * Created with IntelliJ IDEA.
  * User: johnclark
@@ -18,21 +19,24 @@ import org.apache.log4j.BasicConfigurator;
  */
 
 
-
-
 public class Neo4jCouchbaseServer {
 
     static Logger logger = Logger.getLogger(Neo4jCouchbaseServer.class);
+
+    static int port = 8080;
+    static String hostname = "localhost";
+    static String username = "Administrator";
+    static String password = "1gs234";
 
     public static void main(String[] args) throws Exception {
 
         BasicConfigurator.configure();
         Logger.getRootLogger().setLevel(Level.INFO);
         //System.out.println("Test");
-        CouchbaseBehavior couchbaseBehavior = new Neo4jCouchbaseBehavior("localhost",1234);
-        CAPIBehavior capiBehavior = new Neo4jCAPIBehavior();
+        CouchbaseBehavior couchbaseBehavior = new Neo4jCouchbaseBehavior(hostname,port);
+        CAPIBehavior capiBehavior = new Neo4jCAPIBehavior(32);
 
-        CAPIServer capiServer = new CAPIServer(capiBehavior, couchbaseBehavior, "Administrator","1gs234");
+        CAPIServer capiServer = new CAPIServer(capiBehavior, couchbaseBehavior, port, username,password);
         capiServer.start();
     }
 }
