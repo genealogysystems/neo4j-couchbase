@@ -17,6 +17,7 @@
     <orderEntry type="library" name="org.neo4j:neo4j:2.0.0-M05" level="project" />
     <orderEntry type="library" name="org.neo4j.app:neo4j-server:2.0.0-M05" level="project" />
     <orderEntry type="library" name="org.neo4j:server-api:2.0.0-M05" level="project" />
+    <orderEntry type="library" name="commons-codec:commons-codec:1.6" level="project" />
     <orderEntry type="library" name="Maven: com.couchbase:couchbase-capi-server:1.2.0-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.6.4" level="project" />
     <orderEntry type="library" name="Maven: org.eclipse.jetty:jetty-servlet:8.1.0.v20120127" level="project" />
@@ -32,6 +33,7 @@
     <orderEntry type="library" name="Maven: commons-io:commons-io:2.4" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-log4j12:1.6.4" level="project" />
     <orderEntry type="library" name="Maven: log4j:log4j:1.2.16" level="project" />
+    <orderEntry type="library" name="Maven: commons-codec:commons-codec:1.6" level="project" />
   </component>
 </module>
 

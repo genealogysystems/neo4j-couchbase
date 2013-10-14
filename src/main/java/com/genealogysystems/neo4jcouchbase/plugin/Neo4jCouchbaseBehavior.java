@@ -47,6 +47,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         /*
         If pool is default, return buckets and nodes. else return null
          */
+        //System.out.println("getPoolDetails");
         if("default".equals(pool)) {
             Map<String, Object> bucket = new HashMap<String, Object>();
             bucket.put("uri", "/pools/" + pool + "/buckets?uuid=" + getPoolUUID(pool));
@@ -67,6 +68,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         /*
         We will always return the same buckets, enabling a map to collections, places, etc.
          */
+        //System.out.println("getBucketsInPool");
         if("default".equals(pool)) {
             List<String> bucketNameList = new ArrayList<String>();
 
@@ -98,6 +100,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         /*
         There is only ever one node, the one that this plugin runs on.
          */
+        //System.out.println("getNodesServingPool");
         if("default".equals(pool)) {
             List<Object> nodes = new ArrayList<Object>();
 

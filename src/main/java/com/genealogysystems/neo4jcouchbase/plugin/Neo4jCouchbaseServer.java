@@ -24,7 +24,7 @@ public class Neo4jCouchbaseServer {
     static Logger logger = Logger.getLogger(Neo4jCouchbaseServer.class);
 
     static int port = 8080;
-    static String hostname = "localhost";
+    static String hostname = "node1.neo4j.far.genealogysystems.com";
     static String username = "Administrator";
     static String password = "1gs234";
 
@@ -34,7 +34,7 @@ public class Neo4jCouchbaseServer {
         Logger.getRootLogger().setLevel(Level.INFO);
         //System.out.println("Test");
         CouchbaseBehavior couchbaseBehavior = new Neo4jCouchbaseBehavior(hostname,port);
-        CAPIBehavior capiBehavior = new Neo4jCAPIBehavior(32);
+        CAPIBehavior capiBehavior = new Neo4jCAPIBehavior(32, logger);
 
         CAPIServer capiServer = new CAPIServer(capiBehavior, couchbaseBehavior, port, username,password);
         capiServer.start();
