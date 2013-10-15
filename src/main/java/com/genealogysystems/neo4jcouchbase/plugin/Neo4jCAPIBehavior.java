@@ -10,14 +10,23 @@ package com.genealogysystems.neo4jcouchbase.plugin;
 
 import com.couchbase.capi.CAPIBehavior;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 
 import org.codehaus.jackson.map.ObjectMapper;
 
 import javax.servlet.UnavailableException;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.Semaphore;
@@ -30,9 +39,9 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
     static String cypherCreateCollection = "MERGE (col:Collection {id: {id} }) return col;";
     static String cypherCreateCoverage = "MERGE (cov:Coverage {id: {id} }) SET cov.from = {from}, cov.to = {to}, cov.lat = {lat}, cov.lon = {lon} return cov;";
-    static String cypherCreateCovers = "Match col:Collection, cov:Coverage WHERE col.id={colid} AND cov.id={covid} CREATE UNIQUE (col)-[rel:COVERS {id:{id}, from:{from}, to:{to}, tag:{tag}}]->(cov) return rel";
-    static String cypherDeleteCovers = "Match col:Collection-[rel:COVERS]->cov:Coverage WHERE col.id={colid} AND cov.id={covid} AND NOT(rel.id IN {ids}) DELETE rel";
-    static String cypherDeleteCoverages = "MATCH col:Collection-[rel:COVERS]->cov:Coverage WHERE col.id={colid} AND NOT(cov.id IN {ids}) DELETE rel,cov";
+    static String cypherCreateCovers = "Match (col:Collection), (cov:Coverage) WHERE col.id={colid} AND cov.id={covid} CREATE UNIQUE (col)-[rel:COVERS {id:{id}, from:{from}, to:{to}, tag:{tag}}]->(cov) return rel";
+    static String cypherDeleteCovers = "Match (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} AND cov.id={covid} AND NOT(rel.id IN {ids}) DELETE rel";
+    static String cypherDeleteCoverages = "MATCH (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} AND NOT(cov.id IN {ids}) DELETE rel,cov";
 
     public Neo4jCAPIBehavior(int maxConcurrentRequests, Logger logger) {
         this.activeRequests = new Semaphore(maxConcurrentRequests);
@@ -154,7 +163,12 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                 calls.addAll(neoCreateCollection(meta, json, calls.size()));
                 calls.addAll(neoCreateCoverages(meta, json, calls.size()));
                 try {
-                    System.out.println(mapper.writeValueAsString(calls));
+                    String body =  mapper.writeValueAsString(calls);
+                    //System.out.println(body);
+
+                    String ret = executePost("http://localhost:7474/db/data/batch",body);
+                    System.out.println(ret);
+
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 }
@@ -173,6 +187,57 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         activeRequests.release();
 
         return result;
+    }
+
+    private String executePost(String targetURL, String body) {
+        URL url;
+        HttpURLConnection connection = null;
+        try {
+            //Create connection
+            url = new URL(targetURL);
+            connection = (HttpURLConnection)url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type",
+                    "application/json");
+
+            connection.setRequestProperty("Content-Length", "" +
+                    Integer.toString(body.getBytes().length));
+            connection.setRequestProperty("Content-Language", "en-US");
+
+            connection.setUseCaches (false);
+            connection.setDoInput(true);
+            connection.setDoOutput(true);
+
+            //Send request
+            DataOutputStream wr = new DataOutputStream (
+                    connection.getOutputStream ());
+            wr.writeBytes (body);
+            wr.flush ();
+            wr.close ();
+
+            //Get Response
+            InputStream is = connection.getInputStream();
+            BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+            String line;
+            StringBuffer response = new StringBuffer();
+            while((line = rd.readLine()) != null) {
+                response.append(line);
+                response.append('\n');
+            }
+            rd.close();
+            return response.toString();
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            return null;
+
+        } finally {
+
+            if(connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 
     private List<Object> neoCreateCoverages(Map<String, Object> meta, Map<String, Object> json, int offset) {
