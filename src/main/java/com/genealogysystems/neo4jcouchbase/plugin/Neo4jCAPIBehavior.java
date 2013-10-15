@@ -159,16 +159,31 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             if(deleted) {
 
             } else {
+                //create calls for batch
                 List<Object> calls = new ArrayList<Object>();
                 calls.addAll(neoCreateCollection(meta, json, calls.size()));
                 calls.addAll(neoCreateCoverages(meta, json, calls.size()));
                 try {
+                    //make first batch call
                     String body =  mapper.writeValueAsString(calls);
                     //System.out.println(body);
+                    String ret = executePost("http://localhost:7474/db/data/batch", body);
+                    //System.out.println(ret);
 
-                    String ret = executePost("http://localhost:7474/db/data/batch",body);
-                    System.out.println(ret);
+                    /*
+                    //use return to index coverage nodes
+                    Map<String, Object> retjson = (Map<String, Object>) mapper.readValue(ret, Map.class);
 
+                    //create index calls
+
+                    List<Object> indexCalls = new ArrayList<Object>();
+                    calls.addAll(neoCreateIndex(retjson));
+                    //make index batch call
+                    String indexBody =  mapper.writeValueAsString(calls);
+                    System.out.println(indexBody);
+                    String indexRet = executePost("http://localhost:7474/db/data/batch",body);
+                    System.out.println(indexRet);
+                    */
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 }
@@ -187,6 +202,14 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         activeRequests.release();
 
         return result;
+    }
+
+    private List<Object> neoCreateIndex(Map<String, Object> retjson) {
+        List<Object> calls = new ArrayList<Object>();
+
+
+
+        return null;  //To change body of created methods use File | Settings | File Templates.
     }
 
     private String executePost(String targetURL, String body) {
@@ -222,7 +245,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             StringBuffer response = new StringBuffer();
             while((line = rd.readLine()) != null) {
                 response.append(line);
-                response.append('\n');
+                //response.append('\n');
             }
             rd.close();
             return response.toString();
