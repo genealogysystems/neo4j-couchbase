@@ -28,6 +28,11 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     protected Logger logger;
     protected Semaphore activeRequests;
 
+    static String cypherCreateCollection = "MERGE (col:Collection {id: {id} }) return col;";
+    static String cypherCreateCoverage = "MERGE (cov:Coverage {id: {id} }) SET cov.from = {from}, cov.to = {to}, cov.lat = {lat}, cov.lon = {lon} return cov;";
+    static String cypherCreateCovers = "Match col:Collection, cov:Coverage WHERE col.id={colid} AND cov.id={covid} CREATE UNIQUE (col)-[rel:COVERS {id:{id}, from:{from}, to:{to}, tag:{tag}}]->(cov) return rel";
+    static String cypherDeleteCovers = "Match col:Collection-[rel:COVERS]->cov:Coverage WHERE col.id={colid} AND cov.id={covid} AND NOT(rel.id IN {ids}) DELETE rel";
+    static String cypherDeleteCoverages = "MATCH col:Collection-[rel:COVERS]->cov:Coverage WHERE col.id={colid} AND NOT(cov.id IN {ids}) DELETE rel,cov";
 
     public Neo4jCAPIBehavior(int maxConcurrentRequests, Logger logger) {
         this.activeRequests = new Semaphore(maxConcurrentRequests);
@@ -171,24 +176,79 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     }
 
     private List<Object> neoCreateCoverages(Map<String, Object> meta, Map<String, Object> json, int offset) {
-
         List<Object> calls = new ArrayList<Object>();
 
+        //extract info
+        String collectionId = (String)meta.get("id");
         Map<String, Object> coverages = (Map<String, Object>) json.get("coverage");
         Map<String, Object> contains = (Map<String, Object>) json.get("contains");
 
+        //init offset for call ids
+        int covOffset = offset;
+
+        //init arrays to track covers and coverage
+        List<Object> coverageIds = new ArrayList<Object>();
+        List<Object> coversIds = new ArrayList<Object>();
+
+        //create coverage nodes
         for (String coverageSha : coverages.keySet()) {
 
-            String covId = (String)meta.get("id")+":"+coverageSha;
-            int covOffset = offset;
+            String coverageId = (String)meta.get("id")+":"+coverageSha;
+            coverageIds.add(coverageId);
 
-            Map<String, Object> coverage = (Map<String, Object>) coverages.get(coverageSha);
-            Integer from = (Integer) coverage.get("from");
-            Integer to = (Integer) coverage.get("to");
-            Map<String, Object> geoJSON = (Map<String, Object>) coverage.get("geojson");
-            if(!((String)geoJSON.get("type")).equals("Point")) {
-                continue;
+            //create coverage node
+            Map<String, Object> coverageParams = neoExtractCoverageParams(coverageId, (Map<String, Object>) coverages.get(coverageSha));
+            calls.add(createCypherQuery(cypherCreateCoverage, coverageParams, covOffset++));
+
+            //foreach contains, create covers relationship
+            for (String containsSha : contains.keySet()) {
+
+                String coversId = (String)meta.get("id")+":"+containsSha;
+                coversIds.add(coversId);
+
+                //create covers relationship
+                Map<String, Object> coversParams = neoExtractCoversParams(collectionId, coverageId, coversId, (Map<String, Object>) contains.get(containsSha));
+                calls.add(createCypherQuery(cypherCreateCovers, coversParams, covOffset++));
             }
+
+            //remove any old contains covers relationships
+            Map<String, Object> removeCoversParams = new HashMap<String, Object>();
+            removeCoversParams.put("colid",collectionId);
+            removeCoversParams.put("covid",coverageId);
+            removeCoversParams.put("ids",coversIds);
+            calls.add(createCypherQuery(cypherDeleteCovers, removeCoversParams, covOffset++));
+        }
+
+        //remove any old coverages
+        Map<String, Object> removeCoverageParams = new HashMap<String, Object>();
+        removeCoverageParams.put("colid",collectionId);
+        removeCoverageParams.put("ids",coverageIds);
+        calls.add(createCypherQuery(cypherDeleteCoverages, removeCoverageParams, covOffset++));
+
+        return calls;
+    }
+
+    private Map<String, Object> neoExtractCoversParams(String collectionId, String coverageId, String coversId, Map<String, Object> contains) {
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("colid",collectionId);
+        params.put("covid",coverageId);
+        params.put("id",coversId);
+
+        params.put("from",(Integer) contains.get("from"));
+        params.put("to",(Integer) contains.get("to"));
+        params.put("tag",(String) contains.get("tag"));
+
+        return params;  //To change body of created methods use File | Settings | File Templates.
+    }
+
+    private Map<String, Object> neoExtractCoverageParams(String coverageId, Map<String, Object> coverage) {
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id",coverageId);
+        params.put("from",(Integer) coverage.get("from"));
+        params.put("to",(Integer) coverage.get("to"));
+
+        Map<String, Object> geoJSON = (Map<String, Object>) coverage.get("geojson");
+        if(((String)geoJSON.get("type")).equals("Point")) {
             List<Object> coordinates = (List<Object>) geoJSON.get("coordinates");
             Double lat;
             Double lon;
@@ -202,92 +262,40 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             } catch(ClassCastException e) {
                 lon = Double.valueOf((Integer) coordinates.get(1));
             }
-
-            //create coverage node
-            Map<String, Object> createCoverage = new HashMap<String, Object>();
-            createCoverage.put("method","POST");
-            createCoverage.put("to","/index/node/coverage?uniqueness=get_or_create");
-            createCoverage.put("id",offset++);
-            Map<String, Object> body = new HashMap<String, Object>();
-            body.put("key","cov:id");
-            body.put("value",covId);
-            Map<String, Object> properties = new HashMap<String, Object>();
-            properties.put("cov:id",covId);
-            properties.put("lat",lat);
-            properties.put("lon",lon);
-            body.put("properties",properties);
-            createCoverage.put("body",body);
-            calls.add(createCoverage);
-
-            //create label call
-            /*
-            Map<String, Object> createLabel = new HashMap<String, Object>();
-            createLabel.put("method","POST");
-            createLabel.put("to","{"+covOffset+"}/labels");
-            createLabel.put("id",offset++);
-            createLabel.put("body","coverage");
-            calls.add(createLabel);
-            */
-            //create relationships
-            for (String containsSha : contains.keySet()) {
-
-                String conId = (String)meta.get("id")+":"+coverageSha;
-
-                Map<String, Object> contain = (Map<String, Object>) coverages.get(coverageSha);
-                Integer conFrom = (Integer) contain.get("from");
-                Integer conTo = (Integer) contain.get("to");
-                String tag = (String) contain.get("tag");
-
-
-                Map<String, Object> createRel = new HashMap<String, Object>();
-                createRel.put("method","POST");
-                createRel.put("to","{0}/relationships");
-                createRel.put("id",offset++);
-                Map<String, Object> relBody = new HashMap<String, Object>();
-                relBody.put("to","{"+covOffset+"}");
-                relBody.put("value",covId);
-                Map<String, Object> data = new HashMap<String, Object>();
-                data.put("from",conFrom);
-                data.put("to",conTo);
-                data.put("tag",tag);
-                relBody.put("data",data);
-                createRel.put("body",relBody);
-                calls.add(createRel);
-            }
-
+            params.put("lat",lat);
+            params.put("lon",lon);
         }
+        //TODO handle other types of geoJSON
 
-
-        return calls;
+        return params;
     }
 
     private List<Object> neoCreateCollection(Map<String, Object> meta, Map<String, Object> doc, int offset) {
         List<Object> calls = new ArrayList<Object>();
 
         //create the collection node
-        Map<String, Object> createCollection = new HashMap<String, Object>();
-        createCollection.put("method","POST");
-        createCollection.put("to","/index/node/collection?uniqueness=get_or_create");
-        createCollection.put("id",offset);
-        Map<String, Object> body = new HashMap<String, Object>();
-        body.put("key","col:id");
-        body.put("value",(String)meta.get("id"));
-        Map<String, Object> properties = new HashMap<String, Object>();
-        properties.put("col:id",(String)meta.get("id"));
-        body.put("properties",properties);
-        createCollection.put("body",body);
-        calls.add(createCollection);
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id",(String)meta.get("id"));
 
-        //create label call
-        /*
-        Map<String, Object> createLabel = new HashMap<String, Object>();
-        createLabel.put("method","POST");
-        createLabel.put("to","{"+offset+"}/labels");
-        createLabel.put("id",offset+1);
-        createLabel.put("body","collection");
-        calls.add(createLabel);
-        */
+        calls.add(createCypherQuery(cypherCreateCollection, params, offset));
+
         return calls;
+    }
+
+    private Map<String, Object> createCypherQuery(String query, Map<String, Object> params, int id) {
+        //create call body
+        Map<String, Object> body = new HashMap<String, Object>();
+        body.put("query",query);
+        body.put("params",params);
+
+        //create main call object
+        Map<String, Object> call = new HashMap<String, Object>();
+        call.put("method","POST");
+        call.put("to","/cypher");
+        call.put("id",id);
+        call.put("body",body);
+
+        return call;
     }
 
     @Override
