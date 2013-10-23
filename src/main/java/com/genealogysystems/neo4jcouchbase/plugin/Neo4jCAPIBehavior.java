@@ -154,6 +154,11 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
             //logger.info("Bulk doc entry is "+ json);
 
+            Map<String, Object> itemResponse = new HashMap<String, Object>();
+            itemResponse.put("id", id);
+            itemResponse.put("rev", revisions.get(rev));
+            result.add(itemResponse);
+
             boolean deleted = meta.containsKey("deleted") ? (Boolean)meta.get("deleted") : false;
 
             if(deleted) {
@@ -161,21 +166,33 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             } else {
                 //create calls for batch
                 System.out.println(""+id);
+
                 List<Object> calls = new ArrayList<Object>();
-                calls.addAll(neoCreateCollection(meta, json, calls.size()));
-                calls.addAll(neoCreateCoverages(meta, json, calls.size()));
+                List<Object> newCalls;
+                newCalls = neoCreateCollection(meta, json, calls.size());
+                if(newCalls == null) {
+                    continue;
+                }
+                calls.addAll(newCalls);
+                newCalls = neoCreateCoverages(meta, json, calls.size());
+                if(newCalls == null) {
+                    continue;
+                }
+                calls.addAll(newCalls);
                 try {
                     //make first batch call
                     String body =  mapper.writeValueAsString(calls);
                     //System.out.println(body);
                     String ret = executePost("http://localhost:7474/db/data/batch", body);
+                    if(ret == null) {
+                        continue;
+                    }
                     //System.out.println(ret);
 
                     //System.out.println("");
 
                     //use return to index coverage nodes
                     List<Object> retjson = (List<Object>) mapper.readValue(ret, List.class);
-                    List<Object> indexCalls = new ArrayList<Object>();
 
                     //perform index calls
                     neoCallIndex(retjson);
@@ -185,14 +202,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                 }
             }
 
-
-            Map<String, Object> itemResponse = new HashMap<String, Object>();
-            itemResponse.put("id", id);
-            itemResponse.put("rev", revisions.get(rev));
-            result.add(itemResponse);
         }
-
-        //TODO put neo4j code here
 
 
         activeRequests.release();
@@ -239,6 +249,10 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     }
 
     private String executePost(String targetURL, String body) {
+        return executePost(targetURL, body, 2);
+    }
+
+    private String executePost(String targetURL, String body, int retries) {
         URL url;
         HttpURLConnection connection = null;
         try {
@@ -278,8 +292,19 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
         } catch (Exception e) {
 
-            e.printStackTrace();
-            return null;
+            if(retries > 0) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e1) {
+
+                }
+                return executePost(targetURL, body, --retries);
+            } else {
+                System.out.println("unrecoverable error");
+                //e.printStackTrace();
+                System.out.println(body);
+                return null;
+            }
 
         } finally {
 
@@ -296,6 +321,12 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         String collectionId = (String)meta.get("id");
         Map<String, Object> coverages = (Map<String, Object>) json.get("coverage");
         Map<String, Object> contains = (Map<String, Object>) json.get("contains");
+
+        //check for coverages and contains
+        if(coverages == null || coverages.keySet().size() < 1 ||
+                contains == null || contains.keySet().size() < 1) {
+            return null;
+        }
 
         //init offset for call ids
         int covOffset = offset;
