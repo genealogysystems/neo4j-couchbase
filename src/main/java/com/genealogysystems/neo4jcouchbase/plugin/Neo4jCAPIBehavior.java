@@ -41,7 +41,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     static String cypherCreateCoverage = "MERGE (cov:Coverage {id: {id} }) SET cov.from = {from}, cov.to = {to}, cov.lat = {lat}, cov.lon = {lon} return cov;";
     static String cypherCreateCovers = "Match (col:Collection), (cov:Coverage) WHERE col.id={colid} AND cov.id={covid} CREATE UNIQUE (col)-[rel:COVERS {id:{id}, from:{from}, to:{to}, tag:{tag}}]->(cov) return rel";
     static String cypherDeleteCovers = "Match (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} AND cov.id={covid} AND NOT(rel.id IN {ids}) DELETE rel";
-    static String cypherDeleteCoverages = "MATCH (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} AND NOT(cov.id IN {ids}) DELETE rel,cov";
+    static String cypherDeleteCoverages = "MATCH (col:Collection)-[rel:COVERS]->(cover:Coverage) WHERE col.id={colid} AND NOT(cover.id IN {ids}) DELETE rel,cover";
 
     public Neo4jCAPIBehavior(int maxConcurrentRequests, Logger logger) {
         this.activeRequests = new Semaphore(maxConcurrentRequests);
@@ -160,6 +160,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
             } else {
                 //create calls for batch
+                System.out.println(""+id);
                 List<Object> calls = new ArrayList<Object>();
                 calls.addAll(neoCreateCollection(meta, json, calls.size()));
                 calls.addAll(neoCreateCoverages(meta, json, calls.size()));
@@ -170,20 +171,15 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                     String ret = executePost("http://localhost:7474/db/data/batch", body);
                     //System.out.println(ret);
 
-                    /*
+                    //System.out.println("");
+
                     //use return to index coverage nodes
-                    Map<String, Object> retjson = (Map<String, Object>) mapper.readValue(ret, Map.class);
-
-                    //create index calls
-
+                    List<Object> retjson = (List<Object>) mapper.readValue(ret, List.class);
                     List<Object> indexCalls = new ArrayList<Object>();
-                    calls.addAll(neoCreateIndex(retjson));
-                    //make index batch call
-                    String indexBody =  mapper.writeValueAsString(calls);
-                    System.out.println(indexBody);
-                    String indexRet = executePost("http://localhost:7474/db/data/batch",body);
-                    System.out.println(indexRet);
-                    */
+
+                    //perform index calls
+                    neoCallIndex(retjson);
+
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 }
@@ -204,12 +200,42 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         return result;
     }
 
-    private List<Object> neoCreateIndex(Map<String, Object> retjson) {
-        List<Object> calls = new ArrayList<Object>();
 
 
+    private void neoCallIndex(List<Object> json) {
 
-        return null;  //To change body of created methods use File | Settings | File Templates.
+        for(Object ret : json) {
+            Map<String, Object> body = (Map<String, Object>) ((Map<String, Object>) ret).get("body");
+            List<Object> columns = (List<Object>) body.get("columns");
+            if(columns.size() > 0 && ((String)columns.get(0)).equals("cov")) {
+
+                //get self link
+                List<Object> data = (List<Object>) body.get("data");
+                List<Object> first = (List<Object>) data.get(0);
+                Map<String, Object> firstObj = (Map<String, Object>) first.get(0);
+
+                //create params block
+                Map<String, Object> call = new HashMap<String, Object>();
+                call.put("key","dummy");
+                call.put("value","dummy");
+                call.put("uri",(String)firstObj.get("self"));
+
+                String callBody = null;
+                try {
+                    callBody = mapper.writeValueAsString(call);
+                } catch (IOException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
+                //System.out.println(callBody);
+                String indexRet = executePost("http://localhost:7474/db/data/index/node/geom",callBody);
+                //System.out.println("");
+                //System.out.println(indexRet);
+
+            }
+        }
+
+
+        return;
     }
 
     private String executePost(String targetURL, String body) {
@@ -220,12 +246,12 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             url = new URL(targetURL);
             connection = (HttpURLConnection)url.openConnection();
             connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type",
-                    "application/json");
-
+            connection.setRequestProperty("User-Agent","curl/7.29.0");
+            connection.setRequestProperty("Accept","application/json");
+            connection.setRequestProperty("Content-Type","application/json");
             connection.setRequestProperty("Content-Length", "" +
                     Integer.toString(body.getBytes().length));
-            connection.setRequestProperty("Content-Language", "en-US");
+            //connection.setRequestProperty("Content-Language", "en-US");
 
             connection.setUseCaches (false);
             connection.setDoInput(true);
@@ -326,7 +352,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         params.put("to",(Integer) contains.get("to"));
         params.put("tag",(String) contains.get("tag"));
 
-        return params;  //To change body of created methods use File | Settings | File Templates.
+        return params;
     }
 
     private Map<String, Object> neoExtractCoverageParams(String coverageId, Map<String, Object> coverage) {
