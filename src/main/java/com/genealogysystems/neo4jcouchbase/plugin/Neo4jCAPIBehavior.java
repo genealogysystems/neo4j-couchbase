@@ -42,6 +42,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     static String cypherCreateCovers = "Match (col:Collection), (cov:Coverage) WHERE col.id={colid} AND cov.id={covid} CREATE UNIQUE (col)-[rel:COVERS {id:{id}, from:{from}, to:{to}, tag:{tag}}]->(cov) return rel";
     static String cypherDeleteCovers = "Match (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} AND cov.id={covid} AND NOT(rel.id IN {ids}) DELETE rel";
     static String cypherDeleteCoverages = "MATCH (col:Collection)-[rel:COVERS]->(cover:Coverage) WHERE col.id={colid} AND NOT(cover.id IN {ids}) DELETE rel,cover";
+    static String cypherDeleteCollection = "Match (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} DELETE col,ret,cov;";
 
     public Neo4jCAPIBehavior(int maxConcurrentRequests, Logger logger) {
         this.activeRequests = new Semaphore(maxConcurrentRequests);
@@ -159,13 +160,31 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             itemResponse.put("rev", revisions.get(rev));
             result.add(itemResponse);
 
+            //ignore checkpoint requests
+            if(id.startsWith("_local/")) {
+                continue;
+            }
+
             boolean deleted = meta.containsKey("deleted") ? (Boolean)meta.get("deleted") : false;
 
             if(deleted) {
+                List<Object> calls = new ArrayList<Object>();
+                List<Object> deleteCalls = neoCreateDelete(meta, json, calls.size());
+                if(deleteCalls == null) {
+                    continue;
+                }
+                calls.addAll(deleteCalls);
+                try {
+                String body =  mapper.writeValueAsString(calls);
+                //System.out.println(body);
+                String ret = executePost("http://localhost:7474/db/data/batch", body);
+                } catch (IOException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                }
 
             } else {
                 //create calls for batch
-                System.out.println(""+id);
+                //System.out.println(""+id);
 
                 List<Object> calls = new ArrayList<Object>();
                 List<Object> newCalls;
@@ -210,7 +229,18 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         return result;
     }
 
+    private List<Object> neoCreateDelete(Map<String, Object> meta, Map<String, Object> json, int offset) {
+        List<Object> calls = new ArrayList<Object>();
 
+        String collectionId = (String)meta.get("id");
+
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("colid",collectionId);
+
+        calls.add(createCypherQuery(cypherDeleteCollection, params, offset));
+
+        return calls;
+    }
 
     private void neoCallIndex(List<Object> json) {
 
