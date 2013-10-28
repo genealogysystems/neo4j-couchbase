@@ -330,9 +330,10 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                 }
                 return executePost(targetURL, body, --retries);
             } else {
-                System.out.println("unrecoverable error");
-                //e.printStackTrace();
+                System.out.println("Error");
+                System.out.println(targetURL);
                 System.out.println(body);
+                e.printStackTrace();
                 return null;
             }
 
