@@ -201,9 +201,11 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                     String geojson =  mapper.writeValueAsString(json.get("geojson"));
                     call.put("geojson",geojson);
 
-                    System.out.println(mapper.writeValueAsString(call));
+                    String callBody = mapper.writeValueAsString(call);
 
-                    //String indexRet = executePost("http://localhost:7474/db/data/index/node/geom",callBody);
+                    //System.out.println(callBody);
+
+                    String indexRet = executePost("http://localhost:7474/db/data/ext/CollectionIndexPlugin/graphdb/index",callBody);
                     //System.out.println("");
                     //System.out.println(indexRet);
                 } catch (IOException e) {
