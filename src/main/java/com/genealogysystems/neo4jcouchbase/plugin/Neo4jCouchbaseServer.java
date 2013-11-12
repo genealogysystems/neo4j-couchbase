@@ -34,7 +34,7 @@ public class Neo4jCouchbaseServer {
         Logger.getRootLogger().setLevel(Level.INFO);
         //System.out.println("Test");
         CouchbaseBehavior couchbaseBehavior = new Neo4jCouchbaseBehavior(hostname,port);
-        CAPIBehavior capiBehavior = new Neo4jCAPIBehavior(1, logger);
+        CAPIBehavior capiBehavior = new Neo4jCAPIBehavior(16, logger);
 
         CAPIServer capiServer = new CAPIServer(capiBehavior, couchbaseBehavior, port, username,password);
         capiServer.start();

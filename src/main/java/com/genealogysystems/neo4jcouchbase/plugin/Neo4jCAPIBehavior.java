@@ -37,12 +37,6 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     protected Logger logger;
     protected Semaphore activeRequests;
 
-    static String cypherCreateCollection = "MERGE (col:Collection {id: {id} }) return col;";
-    static String cypherCreateCoverage = "MERGE (cov:Coverage {id: {id} }) SET cov.from = {from}, cov.to = {to}, cov.lat = {lat}, cov.lon = {lon} return cov;";
-    static String cypherCreateCovers = "Match (col:Collection), (cov:Coverage) WHERE col.id={colid} AND cov.id={covid} CREATE UNIQUE (col)-[rel:COVERS {id:{id}, from:{from}, to:{to}, tag:{tag}}]->(cov) return rel";
-    static String cypherDeleteCovers = "Match (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} AND cov.id={covid} AND NOT(rel.id IN {ids}) DELETE rel";
-    static String cypherDeleteCoverages = "MATCH (col:Collection)-[rel:COVERS]->(cover:Coverage) WHERE col.id={colid} AND NOT(cover.id IN {ids}) DELETE rel,cover";
-    static String cypherDeleteCollection = "Match (col:Collection)-[rel:COVERS]->(cov:Coverage) WHERE col.id={colid} DELETE col,ret,cov;";
 
     public Neo4jCAPIBehavior(int maxConcurrentRequests, Logger logger) {
         this.activeRequests = new Semaphore(maxConcurrentRequests);
@@ -192,13 +186,20 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                 //create and add geojson
                 try {
                     //create call to index entry
+                    Object geojsonObject = json.get("geojson");
+                    //if geojson is null, continue
+                    if(geojsonObject == null) {
+                        System.out.println("Found null in "+id);
+                        continue;
+                    }
+
                     Map<String, Object> call = new HashMap<String, Object>();
                     call.put("id",(String) json.get("id"));
                     call.put("repo_id",(String) json.get("repo"));
                     call.put("from",(Integer) json.get("from"));
                     call.put("to",(Integer) json.get("to"));
                     call.put("tags",(ArrayList<String>) json.get("tags"));
-                    String geojson =  mapper.writeValueAsString(json.get("geojson"));
+                    String geojson =  mapper.writeValueAsString(geojsonObject);
                     call.put("geojson",geojson);
 
                     String callBody = mapper.writeValueAsString(call);
