@@ -79,9 +79,10 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         if("default".equals(pool)) {
             List<String> bucketNameList = new ArrayList<String>();
 
-            bucketNameList.add("collections");
-            bucketNameList.add("places");
-            bucketNameList.add("repos");
+            bucketNameList.add("entries");
+            //bucketNameList.add("collections");
+            //bucketNameList.add("places");
+            //bucketNameList.add("repos");
 
             //System.out.println("getBucketsInPool");
             //System.out.println("in: "+pool);
