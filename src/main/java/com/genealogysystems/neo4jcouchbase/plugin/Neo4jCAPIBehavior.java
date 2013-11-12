@@ -168,6 +168,8 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             boolean deleted = meta.containsKey("deleted") ? (Boolean)meta.get("deleted") : false;
 
             if(deleted) {
+                /*
+                TODO
                 List<Object> calls = new ArrayList<Object>();
                 List<Object> deleteCalls = neoCreateDelete(meta, json, calls.size());
                 if(deleteCalls == null) {
@@ -181,44 +183,34 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 }
-
+                */
             } else {
                 //create calls for batch
                 //System.out.println(""+id);
 
-                List<Object> calls = new ArrayList<Object>();
-                List<Object> newCalls;
-                newCalls = neoCreateCollection(meta, json, calls.size());
-                if(newCalls == null) {
-                    continue;
-                }
-                calls.addAll(newCalls);
-                newCalls = neoCreateCoverages(meta, json, calls.size());
-                if(newCalls == null) {
-                    continue;
-                }
-                calls.addAll(newCalls);
+
+                //create and add geojson
                 try {
-                    //make first batch call
-                    String body =  mapper.writeValueAsString(calls);
-                    //System.out.println(body);
-                    String ret = executePost("http://localhost:7474/db/data/batch", body);
-                    if(ret == null) {
-                        continue;
-                    }
-                    //System.out.println(ret);
+                    //create call to index entry
+                    Map<String, Object> call = new HashMap<String, Object>();
+                    call.put("id",(String) json.get("id"));
+                    call.put("repo_id",(String) json.get("repo"));
+                    call.put("from",(Integer) json.get("from"));
+                    call.put("to",(Integer) json.get("to"));
+                    call.put("tags",(ArrayList<String>) json.get("tags"));
+                    String geojson =  mapper.writeValueAsString(json.get("geojson"));
+                    call.put("geojson",geojson);
 
+                    System.out.println(mapper.writeValueAsString(call));
+
+                    //String indexRet = executePost("http://localhost:7474/db/data/index/node/geom",callBody);
                     //System.out.println("");
-
-                    //use return to index coverage nodes
-                    List<Object> retjson = (List<Object>) mapper.readValue(ret, List.class);
-
-                    //perform index calls
-                    neoCallIndex(retjson);
-
+                    //System.out.println(indexRet);
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 }
+
+
             }
 
         }
@@ -229,54 +221,9 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         return result;
     }
 
-    private List<Object> neoCreateDelete(Map<String, Object> meta, Map<String, Object> json, int offset) {
-        List<Object> calls = new ArrayList<Object>();
-
-        String collectionId = (String)meta.get("id");
-
-        Map<String, Object> params = new HashMap<String, Object>();
-        params.put("colid",collectionId);
-
-        calls.add(createCypherQuery(cypherDeleteCollection, params, offset));
-
-        return calls;
-    }
-
-    private void neoCallIndex(List<Object> json) {
-
-        for(Object ret : json) {
-            Map<String, Object> body = (Map<String, Object>) ((Map<String, Object>) ret).get("body");
-            List<Object> columns = (List<Object>) body.get("columns");
-            if(columns.size() > 0 && ((String)columns.get(0)).equals("cov")) {
-
-                //get self link
-                List<Object> data = (List<Object>) body.get("data");
-                List<Object> first = (List<Object>) data.get(0);
-                Map<String, Object> firstObj = (Map<String, Object>) first.get(0);
-
-                //create params block
-                Map<String, Object> call = new HashMap<String, Object>();
-                call.put("key","dummy");
-                call.put("value","dummy");
-                call.put("uri",(String)firstObj.get("self"));
-
-                String callBody = null;
-                try {
-                    callBody = mapper.writeValueAsString(call);
-                } catch (IOException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                }
-                //System.out.println(callBody);
-                String indexRet = executePost("http://localhost:7474/db/data/index/node/geom",callBody);
-                //System.out.println("");
-                //System.out.println(indexRet);
-
-            }
-        }
 
 
-        return;
-    }
+
 
     private String executePost(String targetURL, String body) {
         return executePost(targetURL, body, 2);
@@ -345,118 +292,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         }
     }
 
-    private List<Object> neoCreateCoverages(Map<String, Object> meta, Map<String, Object> json, int offset) {
-        List<Object> calls = new ArrayList<Object>();
 
-        //extract info
-        String collectionId = (String)meta.get("id");
-        Map<String, Object> coverages = (Map<String, Object>) json.get("coverage");
-        Map<String, Object> contains = (Map<String, Object>) json.get("contains");
-
-        //check for coverages and contains
-        if(coverages == null || coverages.keySet().size() < 1 ||
-                contains == null || contains.keySet().size() < 1) {
-            return null;
-        }
-
-        //init offset for call ids
-        int covOffset = offset;
-
-        //init arrays to track covers and coverage
-        List<Object> coverageIds = new ArrayList<Object>();
-        List<Object> coversIds = new ArrayList<Object>();
-
-        //create coverage nodes
-        for (String coverageSha : coverages.keySet()) {
-
-            String coverageId = (String)meta.get("id")+":"+coverageSha;
-            coverageIds.add(coverageId);
-
-            //create coverage node
-            Map<String, Object> coverageParams = neoExtractCoverageParams(coverageId, (Map<String, Object>) coverages.get(coverageSha));
-            calls.add(createCypherQuery(cypherCreateCoverage, coverageParams, covOffset++));
-
-            //foreach contains, create covers relationship
-            for (String containsSha : contains.keySet()) {
-
-                String coversId = (String)meta.get("id")+":"+containsSha;
-                coversIds.add(coversId);
-
-                //create covers relationship
-                Map<String, Object> coversParams = neoExtractCoversParams(collectionId, coverageId, coversId, (Map<String, Object>) contains.get(containsSha));
-                calls.add(createCypherQuery(cypherCreateCovers, coversParams, covOffset++));
-            }
-
-            //remove any old contains covers relationships
-            Map<String, Object> removeCoversParams = new HashMap<String, Object>();
-            removeCoversParams.put("colid",collectionId);
-            removeCoversParams.put("covid",coverageId);
-            removeCoversParams.put("ids",coversIds);
-            calls.add(createCypherQuery(cypherDeleteCovers, removeCoversParams, covOffset++));
-        }
-
-        //remove any old coverages
-        Map<String, Object> removeCoverageParams = new HashMap<String, Object>();
-        removeCoverageParams.put("colid",collectionId);
-        removeCoverageParams.put("ids",coverageIds);
-        calls.add(createCypherQuery(cypherDeleteCoverages, removeCoverageParams, covOffset++));
-
-        return calls;
-    }
-
-    private Map<String, Object> neoExtractCoversParams(String collectionId, String coverageId, String coversId, Map<String, Object> contains) {
-        Map<String, Object> params = new HashMap<String, Object>();
-        params.put("colid",collectionId);
-        params.put("covid",coverageId);
-        params.put("id",coversId);
-
-        params.put("from",(Integer) contains.get("from"));
-        params.put("to",(Integer) contains.get("to"));
-        params.put("tag",(String) contains.get("tag"));
-
-        return params;
-    }
-
-    private Map<String, Object> neoExtractCoverageParams(String coverageId, Map<String, Object> coverage) {
-        Map<String, Object> params = new HashMap<String, Object>();
-        params.put("id",coverageId);
-        params.put("from",(Integer) coverage.get("from"));
-        params.put("to",(Integer) coverage.get("to"));
-
-        Map<String, Object> geoJSON = (Map<String, Object>) coverage.get("geojson");
-        if(((String)geoJSON.get("type")).equals("Point")) {
-            List<Object> coordinates = (List<Object>) geoJSON.get("coordinates");
-            Double lat;
-            Double lon;
-            try {
-                lat = (Double) coordinates.get(0);
-            } catch(ClassCastException e) {
-                lat = Double.valueOf((Integer) coordinates.get(0));
-            }
-            try {
-                lon = (Double) coordinates.get(1);
-            } catch(ClassCastException e) {
-                lon = Double.valueOf((Integer) coordinates.get(1));
-            }
-            params.put("lat",lat);
-            params.put("lon",lon);
-        }
-        //TODO handle other types of geoJSON
-
-        return params;
-    }
-
-    private List<Object> neoCreateCollection(Map<String, Object> meta, Map<String, Object> doc, int offset) {
-        List<Object> calls = new ArrayList<Object>();
-
-        //create the collection node
-        Map<String, Object> params = new HashMap<String, Object>();
-        params.put("id",(String)meta.get("id"));
-
-        calls.add(createCypherQuery(cypherCreateCollection, params, offset));
-
-        return calls;
-    }
 
     private Map<String, Object> createCypherQuery(String query, Map<String, Object> params, int id) {
         //create call body
