@@ -162,22 +162,18 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             boolean deleted = meta.containsKey("deleted") ? (Boolean)meta.get("deleted") : false;
 
             if(deleted) {
-                /*
-                TODO
-                List<Object> calls = new ArrayList<Object>();
-                List<Object> deleteCalls = neoCreateDelete(meta, json, calls.size());
-                if(deleteCalls == null) {
-                    continue;
-                }
-                calls.addAll(deleteCalls);
                 try {
-                String body =  mapper.writeValueAsString(calls);
-                //System.out.println(body);
-                String ret = executePost("http://localhost:7474/db/data/batch", body);
+                    Map<String, Object> call = new HashMap<String, Object>();
+                    call.put("id",(String) json.get("id"));
+                    String callBody = mapper.writeValueAsString(call);
+                    //System.out.println(callBody);
+
+                    String delRet = executePost("http://localhost:7474/db/data/ext/CollectionIndexPlugin/graphdb/delete",callBody);
+                    //System.out.println("");
+                    //System.out.println(delRet);
                 } catch (IOException e) {
                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
                 }
-                */
             } else {
                 //create calls for batch
                 //System.out.println(""+id);
@@ -189,13 +185,14 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                     Object geojsonObject = json.get("geojson");
                     //if geojson is null, continue
                     if(geojsonObject == null) {
-                        System.out.println("Found null in "+id);
+                        //System.out.println("Found null in "+id);
                         continue;
                     }
 
                     Map<String, Object> call = new HashMap<String, Object>();
                     call.put("id",(String) json.get("id"));
                     call.put("repo_id",(String) json.get("repo"));
+                    call.put("collection_id",(String) json.get("collection"));
                     call.put("from",(Integer) json.get("from"));
                     call.put("to",(Integer) json.get("to"));
                     call.put("tags",(ArrayList<String>) json.get("tags"));
