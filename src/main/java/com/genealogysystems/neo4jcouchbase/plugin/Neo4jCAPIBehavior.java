@@ -168,7 +168,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                     String callBody = mapper.writeValueAsString(call);
                     //System.out.println(callBody);
 
-                    String delRet = executePost("http://localhost:7474/db/data/ext/CollectionIndexPlugin/graphdb/delete",callBody);
+                    String delRet = executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/delete",callBody);
                     //System.out.println("");
                     //System.out.println(delRet);
                 } catch (IOException e) {
@@ -203,7 +203,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
                     //System.out.println(callBody);
 
-                    String indexRet = executePost("http://localhost:7474/db/data/ext/CollectionIndexPlugin/graphdb/index",callBody);
+                    String indexRet = executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/index",callBody);
                     //System.out.println("");
                     //System.out.println(indexRet);
                 } catch (IOException e) {
