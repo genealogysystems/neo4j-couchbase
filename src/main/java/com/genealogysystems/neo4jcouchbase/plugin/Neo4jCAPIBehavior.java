@@ -191,8 +191,8 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
                     Map<String, Object> call = new HashMap<String, Object>();
                     call.put("id",(String) json.get("id"));
-                    call.put("repo_id",(String) json.get("repo"));
-                    call.put("collection_id",(String) json.get("collection"));
+                    call.put("repo_id",(String) json.get("repo_id"));
+                    call.put("collection_id",(String) json.get("collection_id"));
                     call.put("from",(Integer) json.get("from"));
                     call.put("to",(Integer) json.get("to"));
                     call.put("tags",(ArrayList<String>) json.get("tags"));
