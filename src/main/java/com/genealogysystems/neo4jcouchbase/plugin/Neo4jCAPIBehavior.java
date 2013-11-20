@@ -164,7 +164,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             if(deleted) {
                 try {
                     Map<String, Object> call = new HashMap<String, Object>();
-                    call.put("id",(String) json.get("id"));
+                    call.put("id",id);
                     String callBody = mapper.writeValueAsString(call);
                     //System.out.println(callBody);
 
@@ -190,7 +190,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                     }
 
                     Map<String, Object> call = new HashMap<String, Object>();
-                    call.put("id",(String) json.get("id"));
+                    call.put("id",id);
                     call.put("repo_id",(String) json.get("repo_id"));
                     call.put("collection_id",(String) json.get("collection_id"));
                     call.put("from",(Integer) json.get("from"));
