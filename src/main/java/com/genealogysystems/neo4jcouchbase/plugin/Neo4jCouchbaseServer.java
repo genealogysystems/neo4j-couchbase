@@ -15,7 +15,7 @@ public class Neo4jCouchbaseServer {
     static Logger logger = Logger.getLogger(Neo4jCouchbaseServer.class);
 
     static int port = 9091;
-    static String hostname = "node1.neo4j.far.genealogysystems.com";
+    static String hostname = "node2.neo4j.far.genealogysystems.com";
     static String username = "Administrator";
     static String password = "1gs234";
 

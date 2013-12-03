@@ -31,7 +31,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     @Override
     public boolean databaseExists(String database) {
         String db = getElasticSearchIndexNameFromDatabase(database);
-        return "collections".equals(db) || "places".equals(db) || "repos".equals(db);
+        return "collections".equals(db) || "places".equals(db) || "repos".equals(db) || "entries".equals(db);
 
     }
 

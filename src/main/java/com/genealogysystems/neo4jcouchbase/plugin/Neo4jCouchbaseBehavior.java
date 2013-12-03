@@ -35,7 +35,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         //System.out.println("getPoolUUID");
         //System.out.println("in: "+pool);
         //System.out.println("out: "+ret);
-        return UUID.nameUUIDFromBytes(pool.getBytes()).toString().replace("-", "");
+        return UUID.nameUUIDFromBytes(Neo4jCouchbaseServer.hostname.getBytes()).toString().replace("-", "");
 
     }
 
@@ -74,6 +74,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
             bucketNameList.add("collections");
             bucketNameList.add("places");
             bucketNameList.add("repos");
+            bucketNameList.add("entries");
 
             //System.out.println("getBucketsInPool");
             //System.out.println("in: "+pool);
@@ -90,7 +91,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         Only return if it is a bucket we actually have
          */
         if("default".equals(pool))  {
-            if("collections".equals(bucket) || "places".equals(bucket) || "repos".equals(bucket)) {
+            if("collections".equals(bucket) || "places".equals(bucket) || "repos".equals(bucket)|| "entries".equals(bucket)) {
                 //System.out.println("getBucketUUID");
                 //System.out.println("in: "+pool);
                 //System.out.println("in: "+bucket);
