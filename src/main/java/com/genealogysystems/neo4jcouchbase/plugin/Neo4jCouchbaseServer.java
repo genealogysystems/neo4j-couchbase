@@ -4,19 +4,10 @@ import com.couchbase.capi.CAPIBehavior;
 import com.couchbase.capi.CAPIServer;
 import com.couchbase.capi.CouchbaseBehavior;
 
-import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.BasicConfigurator;
 
-
-/**
- * Created with IntelliJ IDEA.
- * User: johnclark
- * Date: 9/18/13
- * Time: 10:39 AM
- * To change this template use File | Settings | File Templates.
- */
 
 
 public class Neo4jCouchbaseServer {
@@ -32,7 +23,7 @@ public class Neo4jCouchbaseServer {
 
         BasicConfigurator.configure();
         Logger.getRootLogger().setLevel(Level.INFO);
-        //System.out.println("Test");
+
         CouchbaseBehavior couchbaseBehavior = new Neo4jCouchbaseBehavior(hostname,port);
         CAPIBehavior capiBehavior = new Neo4jCAPIBehavior(16, logger);
 

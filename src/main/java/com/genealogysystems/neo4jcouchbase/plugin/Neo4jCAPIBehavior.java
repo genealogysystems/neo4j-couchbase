@@ -1,23 +1,7 @@
-/**
- * Created with IntelliJ IDEA.
- * User: johnclark
- * Date: 9/18/13
- * Time: 9:50 AM
- * To change this template use File | Settings | File Templates.
- */
-
 package com.genealogysystems.neo4jcouchbase.plugin;
 
 import com.couchbase.capi.CAPIBehavior;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 
 import org.codehaus.jackson.map.ObjectMapper;
@@ -46,17 +30,14 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     @Override
     public boolean databaseExists(String database) {
         String db = getElasticSearchIndexNameFromDatabase(database);
-        if("collections".equals(db)|| "places".equals(db) || "repos".equals(db)) {
-            return true;
-        }
+        return "collections".equals(db) || "places".equals(db) || "repos".equals(db);
 
-        return false;
     }
 
     @Override
     public Map<String, Object> getDatabaseDetails(String database) {
         if(databaseExists(database)) {
-            Map<String, Object> responseMap = new HashMap<String, Object>();
+            Map<String, Object> responseMap = new HashMap<>();
             responseMap.put("db_name", getDatabaseNameWithoutUUID(database));
             return responseMap;
         }
@@ -82,11 +63,11 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
     public Map<String, Object> revsDiff(String database, Map<String, Object> revsMap) throws UnavailableException {
 
         // start with all entries in the response map
-        Map<String, Object> responseMap = new HashMap<String, Object>();
+        Map<String, Object> responseMap = new HashMap<>();
         for (Entry<String, Object> entry : revsMap.entrySet()) {
             String id = entry.getKey();
             String revs = (String)entry.getValue();
-            Map<String, String> rev = new HashMap<String, String>();
+            Map<String, String> rev = new HashMap<>();
             rev.put("missing", revs);
             responseMap.put(id, rev);
         }
@@ -102,10 +83,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             throw new UnavailableException("Too many concurrent requests");
         }
 
-        // keep a map of the id - rev for building the response
-        Map<String,String> revisions = new HashMap<String, String>();
-
-        List<Object> result = new ArrayList<Object>();
+        List<Object> result = new ArrayList<>();
 
         for (Map<String, Object> doc : docs) {
 
@@ -123,7 +101,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             } else {
                 if ("non-JSON mode".equals(meta.get("att_reason"))) {
                     // optimization, this tells us the body isn't json
-                    json = new HashMap<String, Object>();
+                    json = new HashMap<>();
                 } else {
                     if (json == null && base64 != null) {
                         // no plain json, let's try parsing the base64 data
@@ -134,7 +112,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                         } catch (IOException e) {
                             logger.error("Unable to parse decoded base64 data as JSON, indexing stub for id: " + meta.get("id"));
                             logger.error("Body was: " + new String(decodedData) + " Parse error was: " + e);
-                            json = new HashMap<String, Object>();
+                            json = new HashMap<>();
 
                         }
                     }
@@ -145,13 +123,16 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             // and the document contents to be indexed are in json
 
             String id = (String)meta.get("id");
-            String rev = (String)meta.get("rev");
+            //String rev = (String)meta.get("rev");
 
             //logger.info("Bulk doc entry is "+ json);
 
-            Map<String, Object> itemResponse = new HashMap<String, Object>();
+            Map<String, Object> itemResponse = new HashMap<>();
             itemResponse.put("id", id);
-            itemResponse.put("rev", revisions.get(rev));
+
+            //not sure why null works here...
+
+            itemResponse.put("rev", null);
             result.add(itemResponse);
 
             //ignore checkpoint requests
@@ -163,16 +144,16 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
             if(deleted) {
                 try {
-                    Map<String, Object> call = new HashMap<String, Object>();
+                    Map<String, Object> call = new HashMap<>();
                     call.put("id",id);
                     String callBody = mapper.writeValueAsString(call);
                     //System.out.println(callBody);
 
-                    String delRet = executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/delete",callBody);
+                    executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/delete",callBody);
                     //System.out.println("");
                     //System.out.println(delRet);
                 } catch (IOException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                    e.printStackTrace();
                 }
             } else {
                 //create calls for batch
@@ -203,11 +184,11 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
                     //System.out.println(callBody);
 
-                    String indexRet = executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/index",callBody);
+                    executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/index",callBody);
                     //System.out.println("");
                     //System.out.println(indexRet);
                 } catch (IOException e) {
-                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                    e.printStackTrace();
                 }
 
 
@@ -259,7 +240,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             InputStream is = connection.getInputStream();
             BufferedReader rd = new BufferedReader(new InputStreamReader(is));
             String line;
-            StringBuffer response = new StringBuffer();
+            StringBuilder response = new StringBuilder();
             while((line = rd.readLine()) != null) {
                 response.append(line);
                 //response.append('\n');
@@ -273,7 +254,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException e1) {
-
+                    System.out.println("ERROR 500 - sleeping");
                 }
                 return executePost(targetURL, body, --retries);
             } else {
@@ -292,24 +273,6 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
         }
     }
 
-
-
-    private Map<String, Object> createCypherQuery(String query, Map<String, Object> params, int id) {
-        //create call body
-        Map<String, Object> body = new HashMap<String, Object>();
-        body.put("query",query);
-        body.put("params",params);
-
-        //create main call object
-        Map<String, Object> call = new HashMap<String, Object>();
-        call.put("method","POST");
-        call.put("to","/cypher");
-        call.put("id",id);
-        call.put("body",body);
-
-        return call;
-    }
-
     @Override
     public Map<String, Object> getDocument(String database, String docId) {
         return getLocalDocument(database, docId);
@@ -317,7 +280,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
     @Override
     public Map<String, Object> getLocalDocument(String database, String docId) {
-        return null; //To change body of implemented methods use File | Settings | File Templates.
+        return null;
     }
 
     @Override
@@ -327,7 +290,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
     @Override
     public String storeLocalDocument(String database, String docId, Map<String, Object> document) {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return null;
     }
 
     @Override
@@ -352,7 +315,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
     @Override
     public Map<String, Object> getStats() {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return null;
     }
 
     protected String getElasticSearchIndexNameFromDatabase(String database) {

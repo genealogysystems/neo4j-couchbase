@@ -1,11 +1,3 @@
-/**
- * Created with IntelliJ IDEA.
- * User: johnclark
- * Date: 9/18/13
- * Time: 9:43 AM
- * To change this template use File | Settings | File Templates.
- */
-
 package com.genealogysystems.neo4jcouchbase.plugin;
 
 import com.couchbase.capi.CouchbaseBehavior;
@@ -29,7 +21,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         As I understand it, always return the string "default"
          */
         //System.out.println("getPools");
-        List<String> result = new ArrayList<String>();
+        List<String> result = new ArrayList<>();
         result.add("default");
         return result;
     }
@@ -40,11 +32,11 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         Always return the uuid using the pool name.
         If we ever want to support multiple neo4j clusters, we need to base this off of the unique cluster name
          */
-        String ret = UUID.nameUUIDFromBytes(pool.getBytes()).toString().replace("-", "");
         //System.out.println("getPoolUUID");
         //System.out.println("in: "+pool);
         //System.out.println("out: "+ret);
-        return ret;
+        return UUID.nameUUIDFromBytes(pool.getBytes()).toString().replace("-", "");
+
     }
 
     @Override
@@ -53,10 +45,10 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         If pool is default, return buckets and nodes. else return null
          */
         if("default".equals(pool)) {
-            Map<String, Object> bucket = new HashMap<String, Object>();
+            Map<String, Object> bucket = new HashMap<>();
             bucket.put("uri", "/pools/" + pool + "/buckets?uuid=" + getPoolUUID(pool));
 
-            Map<String, Object> responseMap = new HashMap<String, Object>();
+            Map<String, Object> responseMap = new HashMap<>();
             responseMap.put("buckets", bucket);
 
             List<Object> nodes = getNodesServingPool(pool);
@@ -77,7 +69,7 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         We will always return the same buckets, enabling a map to collections, places, etc.
          */
         if("default".equals(pool)) {
-            List<String> bucketNameList = new ArrayList<String>();
+            List<String> bucketNameList = new ArrayList<>();
 
             bucketNameList.add("collections");
             bucketNameList.add("places");
@@ -99,12 +91,11 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
          */
         if("default".equals(pool))  {
             if("collections".equals(bucket) || "places".equals(bucket) || "repos".equals(bucket)) {
-                String ret = UUID.nameUUIDFromBytes(bucket.getBytes()).toString().replace("-", "");;
                 //System.out.println("getBucketUUID");
                 //System.out.println("in: "+pool);
                 //System.out.println("in: "+bucket);
                 //System.out.println("out: "+ret);
-                return ret;
+                return UUID.nameUUIDFromBytes(bucket.getBytes()).toString().replace("-", "");
             }
             return null;
         }
@@ -117,12 +108,12 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
         There is only ever one node, the one that this plugin runs on.
          */
         if("default".equals(pool)) {
-            List<Object> nodes = new ArrayList<Object>();
+            List<Object> nodes = new ArrayList<>();
 
-            Map<String, Object> nodePorts = new HashMap<String, Object>();
+            Map<String, Object> nodePorts = new HashMap<>();
             nodePorts.put("direct", port);
 
-            Map<String, Object> node = new HashMap<String, Object>();
+            Map<String, Object> node = new HashMap<>();
             String hostPort = hostname + ":" + port.toString();
             node.put("couchApiBase", String.format("http://%s/", hostPort));
             node.put("hostname", hostPort);
@@ -141,7 +132,6 @@ public class Neo4jCouchbaseBehavior implements CouchbaseBehavior {
     @Override
     public Map<String, Object> getStats() {
         //System.out.println("getStats");
-        Map<String, Object> result = new HashMap<String, Object>();
-        return result;
+        return new HashMap<>();
     }
 }
