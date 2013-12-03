@@ -2,6 +2,7 @@ package com.genealogysystems.neo4jcouchbase.plugin;
 
 import com.couchbase.capi.CAPIBehavior;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import org.codehaus.jackson.map.ObjectMapper;
@@ -85,6 +86,18 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
         List<Object> result = new ArrayList<>();
 
+        //Batch Delete
+        ArrayList<String> toDelete = new ArrayList<>();
+
+        //Batch Index
+        ArrayList<String> indexEntityIDs = new ArrayList<>();
+        ArrayList<String> indexRepositoryIDs = new ArrayList<>();
+        ArrayList<String> indexCollectionIDs = new ArrayList<>();
+        ArrayList<Integer> indexFroms = new ArrayList<>();
+        ArrayList<Integer> indexTos = new ArrayList<>();
+        ArrayList<String> indexTags = new ArrayList<>();
+        ArrayList<String> indexGeojsons = new ArrayList<>();
+
         for (Map<String, Object> doc : docs) {
 
             //logger.info("Bulk doc entry is "+ docs);
@@ -129,10 +142,7 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
 
             Map<String, Object> itemResponse = new HashMap<>();
             itemResponse.put("id", id);
-
-            //not sure why null works here...
-
-            itemResponse.put("rev", null);
+            itemResponse.put("rev", null); //not sure why null works here...
             result.add(itemResponse);
 
             //ignore checkpoint requests
@@ -143,57 +153,64 @@ public class Neo4jCAPIBehavior implements CAPIBehavior {
             boolean deleted = meta.containsKey("deleted") ? (Boolean)meta.get("deleted") : false;
 
             if(deleted) {
-                try {
-                    Map<String, Object> call = new HashMap<>();
-                    call.put("id",id);
-                    String callBody = mapper.writeValueAsString(call);
-                    //System.out.println(callBody);
-
-                    executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/delete",callBody);
-                    //System.out.println("");
-                    //System.out.println(delRet);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                toDelete.add(id);
             } else {
-                //create calls for batch
-                //System.out.println(""+id);
-
-
-                //create and add geojson
+                Object geojsonObject = json.get("geojson");
+                //if geojson is null, continue
+                if(geojsonObject == null) {
+                    //System.out.println("Found null in "+id);
+                    continue;
+                }
                 try {
-                    //create call to index entry
-                    Object geojsonObject = json.get("geojson");
-                    //if geojson is null, continue
-                    if(geojsonObject == null) {
-                        //System.out.println("Found null in "+id);
-                        continue;
-                    }
-
-                    Map<String, Object> call = new HashMap<String, Object>();
-                    call.put("id",id);
-                    call.put("repo_id",(String) json.get("repo_id"));
-                    call.put("collection_id",(String) json.get("collection_id"));
-                    call.put("from",(Integer) json.get("from"));
-                    call.put("to",(Integer) json.get("to"));
-                    call.put("tags",(ArrayList<String>) json.get("tags"));
-                    String geojson =  mapper.writeValueAsString(geojsonObject);
-                    call.put("geojson",geojson);
-
-                    String callBody = mapper.writeValueAsString(call);
-
-                    //System.out.println(callBody);
-
-                    executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/index",callBody);
-                    //System.out.println("");
-                    //System.out.println(indexRet);
+                    indexEntityIDs.add(id);
+                    indexRepositoryIDs.add((String) json.get("repo_id"));
+                    indexCollectionIDs.add((String) json.get("collection_id"));
+                    indexFroms.add((Integer) json.get("from"));
+                    indexTos.add((Integer) json.get("to"));
+                    ArrayList<String> tags = (ArrayList<String>) json.get("tags");
+                    indexTags.add(StringUtils.join(tags.toArray(), ','));
+                    indexGeojsons.add(mapper.writeValueAsString(geojsonObject));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-
 
             }
 
+        } // End for loop
+
+        //make delete request
+        if(toDelete.size() > 0) {
+            try {
+                Map<String, Object> call = new HashMap<>();
+                call.put("id",toDelete);
+
+                String callBody = mapper.writeValueAsString(call);
+
+                executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/delete_batch",callBody);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        //make index request
+        if(indexEntityIDs.size() > 0) {
+            try {
+                Map<String, Object> call = new HashMap<>();
+                call.put("id",indexEntityIDs);
+                call.put("repo_id",indexRepositoryIDs);
+                call.put("collection_id",indexCollectionIDs);
+                call.put("from",indexFroms);
+                call.put("to",indexTos);
+                call.put("tags",indexTags);
+                call.put("geojson",indexGeojsons);
+
+                String callBody = mapper.writeValueAsString(call);
+
+                executePost("http://localhost:7474/db/data/ext/EntryIndexPlugin/graphdb/index_batch",callBody);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
 

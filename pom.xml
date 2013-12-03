@@ -6,7 +6,7 @@
 
     <groupId>com.genealogysystems</groupId>
     <artifactId>neo4j-couchbase</artifactId>
-    <version>0.4.3</version>
+    <version>0.5.0</version>
     <dependencies>
         <dependency>
             <groupId>com.couchbase</groupId>
@@ -28,9 +28,23 @@
             <artifactId>httpclient</artifactId>
             <version>4.3.1</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.0.1</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
+            <plugin>
+                <inherited>true</inherited>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                </configuration>
+            </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
